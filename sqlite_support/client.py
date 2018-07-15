@@ -27,17 +27,21 @@ class SQLiteClient:
     # return type:- sqlite.cursor
 
     @contextmanager
-    def connect(self, force_commit = False):
+    def connect(self,commit = False, force_commit = False):
         logger.info("Creating connection to SQLite DB on path: " + str(self._db_path))
         try:
             if self._db_path == ":memory:":
                 cursor =  self._connection.cursor()
                 yield cursor
+                if commit:
+                    self._connection.commit()
             else:
                 connection = sqlite3.connect(self._db_path, isolation_level=self._isolation_level)
                 connection.row_factory = sqlite3.Row
                 cursor = connection.cursor()
                 yield cursor
+                if commit:
+                    self._connection.commit()
                 cursor.close()
         except Exception as e:
             logger.error(msg=str(e))

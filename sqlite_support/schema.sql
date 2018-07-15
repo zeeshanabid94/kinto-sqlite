@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS records (
   -- This is a timestamp field.
   -- This field allows us to keep track of
   -- the last modification to the record
-  last_modified TIMESTAMP,
+  last_modified int,
 
   -- The actual data field. This will need a
   -- json converted to serialize and deserialize
@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS records (
 
   -- Boolean attributed indicating if the record
   -- was deleted. This is used for lazy deletion
-  deleted boolean,
+  deleted boolean default FALSE,
 
   primary key(id, parent_id, collection_id)
 
