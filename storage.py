@@ -18,6 +18,9 @@ from sqlite_support.queries import (CREATE_QUERY, READ_QUERY,
 from sqlite_support.migrator import SQLiteMigratorMixin
 
 from sqlite_support.client import SQLiteClient
+from kinto.core.utils import COMPARISON
+
+
 
 HERE = os.path.dirname(__file__)
 logger = logging.getLogger(__name__)
@@ -273,9 +276,82 @@ class Storage(StorageBase, SQLiteMigratorMixin):
         else:
             format_values['parent_id_filter'] = 'parent_id = :parent_id'
 
+        if filters:
+            conditions, holders, data_filters = self._format_filtering_conditions(filters, id_field, modified_field)
+
+            filters_condition = "AND {}".format(map(lambda x: x[0].format(x[1])), zip(conditions, holders))
+            values_dict['conditions_filter'] = filters_condition
+
+        if sorting:
+            pass
+
+        if pagination_rules:
+            pass
+
+        limit = min(self._max_fetch_size, limit) if limit else self._max_fetch_size
+        values_dict["pagination_limit"] = limit
+
+
         # Deleted conditions
         if not include_deleted:
             format_values['conditions_deleted'] = 'AND NOT deleted'
+
+    def _format_filtering_conditions(self, filters, id_field, modified_field):
+
+        operators = {
+            COMPARISON.EQ: '=',
+            COMPARISON.NOT: '<>',
+            COMPARISON.IN: 'IN',
+            COMPARISON.EXCLUDE: 'NOT IN',
+            COMPARISON.LIKE: 'LIKE',
+            COMPARISON.CONTAINS: 'IN',
+        }
+
+        conditions = []
+        holders = []
+        data_filters = []
+
+        for i, filter in enumerate(filters):
+            value = filter.value
+            field = filter.field
+
+            if field in (id_field, modified_field):
+                if field == id_field:
+                    sql_field = "id"
+                    if type(value) == int:
+                        value = str(value)
+
+                elif field == modified_field:
+                    sql_field = 'last_modified'
+                    if type(value) == int:
+                        value = str(value)
+
+                if filter.operator == COMPARISON.EQ or filter.operator == COMPARISON.NOT:
+                    condition_sql = "{} " + operators[filter.operator] + " {}"
+                    condition_values = (field, value)
+                elif filter.operator == COMPARISON.IN or filter.operator == COMPARISON.EXCLUDE:
+                    value = tuple(value)
+                    condition_sql = "{} " + operators[filter.operator] + " {}"
+                    condition_values = (field, value)
+                elif filter.operator == COMPARISON.LIKE:
+                    if '*' not in value:
+                        value = '*{}*'.format(value)
+                    value = value.replace('*', '%')
+                    condition_sql = "{} " + operators[COMPARISON.LIKE] + " {}"
+                    condition_values = (field, value)
+                elif filter.operator == COMPARISON.CONTAINS_ANY:
+                    condition_sql = "{} " + operators[COMPARISON.IN] + " {}"
+                    condition_values = (value, field)
+                elif filter.operator == COMPARISON.HAS:
+                    condition_sql = "{} IS {}"
+                    condition_values = (field, "NOT NULL") if value else (field, "NULL")
+
+                conditions.append(condition_sql)
+                holders.append(condition_values)
+
+            else:
+                data_filters.append(filter)
+        return conditions, holders, data_filters
 
     def flush(self, auth=None):
         pass
