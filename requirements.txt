@@ -36,7 +36,7 @@ translationstring==1.3
 ujson==1.35
 urllib3==1.23
 venusian==1.1.0
-waitress==1.1.0
+waitress==1.4.1
 WebOb==1.8.2
 WebTest==2.0.30
 zope.deprecation==4.3.0
